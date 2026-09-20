@@ -1,0 +1,25 @@
+# 作業系統系統檔案
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+
+# 編輯器與 IDE 設定檔
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*~
+
+# 紀錄與除錯日誌
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 舊版單一檔案備份（非模組化專案代碼）
+2048 Game (1).html
+遊戲製作人_第四課_附錄.html

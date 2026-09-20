@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2048 - Classic Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>2048</h1>
+        
+        <div class="scores-container">
+            <div class="score-box">
+                <div class="score-label">Score</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            <div class="score-box">
+                <div class="score-label">Best</div>
+                <div class="score-value" id="best-score">0</div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+        <div class="button-row">
+            <button class="game-btn restart-btn" id="restartBtn">重新開始</button>
+            <button class="game-btn hint-btn" id="hintBtn">建議</button>
+            <button class="game-btn auto-btn" id="autoBtn">自動</button>
+            <button class="game-btn skill-btn" id="skillBtn" disabled>消除 (0)</button>
+            <button class="game-btn settings-btn" id="settingsBtn">色彩設定</button>
+        </div>
+        <div class="hint-display" id="hintDisplay"></div>
+        <div class="skill-mode-hint" id="skillModeHint">點擊要消除的格子（十字範圍）</div>
+
+        <div class="controls-hint">
+            使用 <span class="key">↑</span> <span class="key">↓</span> <span class="key">←</span> <span class="key">→</span> 
+            或 <span class="key">W</span> <span class="key">S</span> <span class="key">A</span> <span class="key">D</span> 
+            控制方向<br>
+            <span class="key">E</span> 使用消除技能　<span class="key">Esc</span> 取消選取<br>
+            或使用滑鼠滑動控制
+        </div>
+    </div>
+
+    <div class="settings-overlay" id="settingsOverlay"></div>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-panel-header">
+            <span class="settings-panel-title">色彩設定</span>
+            <button class="settings-close-btn" id="settingsCloseBtn">✕</button>
+        </div>
+        <div class="settings-section">
+            <span class="settings-label">背板漸層色（紫底）</span>
+            <div class="color-input-row">
+                <input type="color" id="bgStart" value="#667eea">
+                <span class="color-hex" id="bgStartHex">#667eea</span>
+                <span style="color:#776e65;font-size:13px;">→</span>
+                <input type="color" id="bgEnd" value="#764ba2">
+                <span class="color-hex" id="bgEndHex">#764ba2</span>
+            </div>
+        </div>
+        <div class="settings-section">
+            <span class="settings-label">容器背景色（白底）</span>
+            <div class="color-input-row">
+                <input type="color" id="containerBg" value="#ffffff">
+                <span class="color-hex" id="containerBgHex">#ffffff</span>
+            </div>
+        </div>
+        <div class="settings-section">
+            <span class="settings-label">方塊色彩主題</span>
+            <select class="theme-select" id="tileTheme">
+                <option value="classic">經典</option>
+                <option value="dark">深色</option>
+                <option value="neon">霓虹</option>
+                <option value="pastel">粉彩</option>
+                <option value="ocean">海洋</option>
+            </select>
+        </div>
+        <div class="settings-section">
+            <span class="settings-label">個別方塊顏色</span>
+            <div class="tile-color-grid" id="tileColorGrid"></div>
+        </div>
+        <button class="game-btn reset-colors-btn" id="resetColorsBtn">恢復預設</button>
+    </div>
+
+    <div class="game-over-overlay" id="gameOverOverlay">
+        <div class="game-over-box">
+            <div class="game-over-title">Game Over!</div>
+            <div class="final-score">Final Score: <span id="finalScore">0</span></div>
+            <div class="restart-hint">
+                按 <span class="space-key">Space</span> 重新開始
+            </div>
+        </div>
+    </div>
+
+    <!-- 模組化程式進入點 -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
