@@ -16,21 +16,24 @@ import { Tile } from '../entities/Tile.js';
 import { Physics } from '../systems/Physics.js';
 import { ParticleSystem } from '../systems/ParticleSystem.js';
 import { AISystem } from '../systems/AISystem.js';
+import { assetLoader } from '../systems/AssetLoader.js';
 import { GameLoop } from './GameLoop.js';
 import { InputHandler } from './InputHandler.js';
 import { HUD } from '../ui/HUD.js';
 
 /**
  * 2048 Game Engine - 核心遊戲控制器 (Facade)
- * 協調整合實體、子系統、主循環與 UI
+ * 協調整合實體、子系統、主循環、音訊與 UI
  */
 export class Game {
     /**
      * @param {HTMLCanvasElement} canvas 
+     * @param {import('../systems/AssetLoader.js').AssetLoader} [loader=assetLoader]
      */
-    constructor(canvas) {
+    constructor(canvas, loader = assetLoader) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
+        this.assetLoader = loader;
 
         // 核心子系統與實體
         this.grid = new Grid(GRID_SIZE);
@@ -54,7 +57,8 @@ export class Game {
         // 初始化 HUD 介面
         this.hud = new HUD({
             onColorChange: () => this.draw(),
-            onSettingsToggle: (isOpen) => this.handleSettingsToggle(isOpen)
+            onSettingsToggle: (isOpen) => this.handleSettingsToggle(isOpen),
+            onToggleMute: () => this.toggleMute()
         });
 
         // 初始化輸入處理器
@@ -63,9 +67,12 @@ export class Game {
             onToggleSkill: () => this.toggleSkillMode(),
             onCancelSkill: () => this.cancelSkillMode(),
             onRestart: () => this.onRestartKey(),
+            onToggleMute: () => this.toggleMute(),
             onSkillClick: (r, c) => this.executeSkill(r, c),
-            onSkillHover: (cell) => this.handleSkillHover(cell),
-            onSkillLeave: () => this.handleSkillLeave()
+            onSkillHover: (cell, coords) => this.handleSkillHover(cell, coords),
+            onSkillLeave: () => this.handleSkillLeave(),
+            onPointerMove: (coords) => this.handlePointerMove(coords),
+            onUserInteract: () => this.assetLoader.unlockAudio()
         });
 
         // 綁定 UI 按鈕事件
@@ -84,6 +91,15 @@ export class Game {
     start() {
         this.initGame();
         this.loop.start();
+        this.assetLoader.startBGM();
+    }
+
+    /**
+     * 切換靜音狀態
+     */
+    toggleMute() {
+        const isMuted = this.assetLoader.toggleMute();
+        this.hud.updateMuteButton(isMuted);
     }
 
     /**
@@ -92,22 +108,34 @@ export class Game {
     initButtons() {
         const restartBtn = document.getElementById('restartBtn');
         if (restartBtn) {
-            restartBtn.addEventListener('click', () => this.restart());
+            restartBtn.addEventListener('click', () => {
+                this.assetLoader.unlockAudio();
+                this.restart();
+            });
         }
 
         const skillBtn = document.getElementById('skillBtn');
         if (skillBtn) {
-            skillBtn.addEventListener('click', () => this.toggleSkillMode());
+            skillBtn.addEventListener('click', () => {
+                this.assetLoader.unlockAudio();
+                this.toggleSkillMode();
+            });
         }
 
         const hintBtn = document.getElementById('hintBtn');
         if (hintBtn) {
-            hintBtn.addEventListener('click', () => this.toggleHintMode());
+            hintBtn.addEventListener('click', () => {
+                this.assetLoader.unlockAudio();
+                this.toggleHintMode();
+            });
         }
 
         const autoBtn = document.getElementById('autoBtn');
         if (autoBtn) {
-            autoBtn.addEventListener('click', () => this.toggleAutoPlay());
+            autoBtn.addEventListener('click', () => {
+                this.assetLoader.unlockAudio();
+                this.toggleAutoPlay();
+            });
         }
     }
 
@@ -127,6 +155,7 @@ export class Game {
         this.hud.hideGameOver();
         this.hud.updateScores(this.player.score, this.player.bestScore);
         this.hud.updateSkillButton(this.player.skillCharges, false);
+        this.hud.updateMuteButton(this.assetLoader.isMuted);
 
         // 生成初始兩個方塊
         this.grid.addRandomTile();
@@ -181,7 +210,14 @@ export class Game {
         if (moveResult.moved) {
             this.consumedTiles = moveResult.consumedTiles;
 
-            // 產生合併粒子爆發
+            // 產生合併粒子爆發與碰撞/跳躍音效反饋
+            if (this.consumedTiles.length > 0) {
+                this.assetLoader.playCollision(0.45);
+                this.assetLoader.playJump(0.35);
+            } else {
+                this.assetLoader.playCollision(0.2);
+            }
+
             for (const ct of this.consumedTiles) {
                 const targetX = GRID_OFFSET + ct.toCol * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
                 const targetY = GRID_OFFSET + ct.toRow * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
@@ -223,9 +259,6 @@ export class Game {
 
         this.hud.updateSkillButton(this.player.skillCharges, active);
         this.draw();
-        if (active && this.player.hoverSkillCell) {
-            this.hud.drawSkillHover(this.ctx, this.player.hoverSkillCell);
-        }
     }
 
     cancelSkillMode() {
@@ -255,6 +288,15 @@ export class Game {
         }
         if (!hasTile) return;
 
+        // 鎖定中心座標
+        const centerX = GRID_OFFSET + col * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+        const centerY = GRID_OFFSET + row * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+        this.player.setTargetPosition(centerX, centerY);
+
+        // 觸發狙擊鏡開火反作用力動畫與震撼爆炸音效
+        this.player.triggerFire();
+        this.assetLoader.playBoom(0.85);
+
         // 消除方塊並觸發粒子效果
         for (const { r, c } of affected) {
             if (this.grid.get(r, c)) {
@@ -282,7 +324,21 @@ export class Game {
         }
     }
 
-    handleSkillHover(cell) {
+    handlePointerMove(coords) {
+        if (coords && this.player.skillMode) {
+            this.player.setTargetPosition(coords.x, coords.y);
+        }
+    }
+
+    handleSkillHover(cell, coords) {
+        if (coords) {
+            this.player.setTargetPosition(coords.x, coords.y);
+        } else if (cell) {
+            const tx = GRID_OFFSET + cell.col * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+            const ty = GRID_OFFSET + cell.row * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+            this.player.setTargetPosition(tx, ty);
+        }
+
         const newHover = cell ? { row: cell.row, col: cell.col } : null;
         const prev = this.player.hoverSkillCell;
         const changed = (newHover === null) !== (prev === null) ||
@@ -291,9 +347,6 @@ export class Game {
         if (changed) {
             this.player.hoverSkillCell = newHover;
             this.draw();
-            if (newHover) {
-                this.hud.drawSkillHover(this.ctx, newHover);
-            }
         }
     }
 
@@ -419,6 +472,7 @@ export class Game {
      */
     update(dt) {
         this.particles.update(dt);
+        this.player.update(dt);
     }
 
     /**
@@ -433,6 +487,9 @@ export class Game {
         if (this.player.skillMode && this.player.hoverSkillCell) {
             this.hud.drawSkillHover(this.ctx, this.player.hoverSkillCell);
         }
+
+        // 渲染玩家狙擊鏡 Sprite 動畫幀
+        this.player.render(this.ctx, this.assetLoader);
 
         if (this.currentHint) {
             if (this.currentHint.type === 'arrow') {
@@ -503,6 +560,13 @@ export class Game {
         }
 
         this.particles.render(this.ctx);
+
+        if (this.player.skillMode && this.player.hoverSkillCell) {
+            this.hud.drawSkillHover(this.ctx, this.player.hoverSkillCell);
+        }
+
+        // 渲染玩家狙擊鏡 Sprite 動畫幀
+        this.player.render(this.ctx, this.assetLoader);
     }
 
     /**

@@ -19,10 +19,12 @@ export class HUD {
      * @param {Object} options
      * @param {Function} options.onColorChange 回呼：顏色配置更新時通知重繪
      * @param {Function} options.onSettingsToggle 回呼：設定面板開啟/關閉時通知（用於暫停/恢復自動遊玩）
+     * @param {Function} options.onToggleMute 回呼：切換靜音
      */
     constructor(options = {}) {
         this.onColorChange = options.onColorChange || (() => {});
         this.onSettingsToggle = options.onSettingsToggle || (() => {});
+        this.onToggleMute = options.onToggleMute || (() => {});
 
         // 當前使用之色彩配置（深拷貝預設）
         this.colors = JSON.parse(JSON.stringify(DEFAULT_COLORS));
@@ -33,6 +35,7 @@ export class HUD {
         this.skillBtn = document.getElementById('skillBtn');
         this.hintBtn = document.getElementById('hintBtn');
         this.autoBtn = document.getElementById('autoBtn');
+        this.muteBtn = document.getElementById('muteBtn');
         this.hintDisplay = document.getElementById('hintDisplay');
         this.skillModeHint = document.getElementById('skillModeHint');
         this.gameOverOverlay = document.getElementById('gameOverOverlay');
@@ -53,6 +56,30 @@ export class HUD {
         this.resetColorsBtn = document.getElementById('resetColorsBtn');
 
         this.initSettingsPanel();
+        this.initMuteButton();
+    }
+
+    initMuteButton() {
+        if (this.muteBtn) {
+            this.muteBtn.addEventListener('click', () => {
+                this.onToggleMute();
+            });
+        }
+    }
+
+    /**
+     * 更新靜音按鈕外觀狀態
+     * @param {boolean} isMuted 
+     */
+    updateMuteButton(isMuted) {
+        if (!this.muteBtn) return;
+        if (isMuted) {
+            this.muteBtn.textContent = '🔇 音效: 關';
+            this.muteBtn.classList.add('muted');
+        } else {
+            this.muteBtn.textContent = '🔊 音效: 開';
+            this.muteBtn.classList.remove('muted');
+        }
     }
 
     /**
@@ -174,7 +201,8 @@ export class HUD {
     }
 
     /**
-     * 繪製技能滑鼠懸停十字高亮
+     * 繪製技能滑鼠懸停十字範圍背景半透明光暈
+     * （中心精確十字準心已改由 Player.js 以 context.drawImage 繪製）
      * @param {CanvasRenderingContext2D} ctx 
      * @param {{ row: number, col: number }} cell 
      */
@@ -182,7 +210,7 @@ export class HUD {
         if (!cell) return;
         const affected = Physics.getSkillAffectedCells(cell.row, cell.col);
         ctx.save();
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.22;
         ctx.fillStyle = '#9b59b6';
         for (const { r, c } of affected) {
             const x = GRID_OFFSET + c * (CELL_SIZE + CELL_GAP);

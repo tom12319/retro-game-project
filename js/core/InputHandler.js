@@ -16,9 +16,12 @@ export class InputHandler {
             onToggleSkill: () => {},
             onCancelSkill: () => {},
             onRestart: () => {},
+            onToggleMute: () => {},
             onSkillClick: () => {},
             onSkillHover: () => {},
-            onSkillLeave: () => {}
+            onSkillLeave: () => {},
+            onPointerMove: () => {},
+            onUserInteract: () => {}
         }, callbacks);
 
         this.touchStartX = 0;
@@ -31,7 +34,7 @@ export class InputHandler {
 
     setSkillMode(active) {
         this.isSkillMode = active;
-        this.canvas.style.cursor = active ? 'pointer' : '';
+        this.canvas.style.cursor = active ? 'crosshair' : '';
     }
 
     init() {
@@ -57,6 +60,8 @@ export class InputHandler {
         };
 
         window.addEventListener('keydown', (e) => {
+            this.callbacks.onUserInteract();
+
             if (keyMap[e.key]) {
                 e.preventDefault();
                 this.callbacks.onMove(keyMap[e.key]);
@@ -77,6 +82,13 @@ export class InputHandler {
                 return;
             }
 
+            // M 鍵切換靜音
+            if (e.key === 'm' || e.key === 'M') {
+                e.preventDefault();
+                this.callbacks.onToggleMute();
+                return;
+            }
+
             // Space 鍵重新開始
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -88,6 +100,7 @@ export class InputHandler {
 
     initPointer() {
         this.canvas.addEventListener('mousedown', (e) => {
+            this.callbacks.onUserInteract();
             this.touchStartX = e.clientX;
             this.touchStartY = e.clientY;
         });
@@ -97,6 +110,7 @@ export class InputHandler {
         });
 
         this.canvas.addEventListener('click', (e) => {
+            this.callbacks.onUserInteract();
             if (!this.isSkillMode) return;
             const cell = this.getCellFromMouse(e.clientX, e.clientY);
             if (cell) {
@@ -105,9 +119,12 @@ export class InputHandler {
         });
 
         this.canvas.addEventListener('mousemove', (e) => {
+            const coords = this.getCanvasCoords(e.clientX, e.clientY);
+            this.callbacks.onPointerMove(coords);
+
             if (!this.isSkillMode) return;
             const cell = this.getCellFromMouse(e.clientX, e.clientY);
-            this.callbacks.onSkillHover(cell);
+            this.callbacks.onSkillHover(cell, coords);
         });
 
         this.canvas.addEventListener('mouseleave', () => {
@@ -118,9 +135,24 @@ export class InputHandler {
 
     initTouch() {
         this.canvas.addEventListener('touchstart', (e) => {
+            this.callbacks.onUserInteract();
             if (e.touches.length > 0) {
                 this.touchStartX = e.touches[0].clientX;
                 this.touchStartY = e.touches[0].clientY;
+                const coords = this.getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+                this.callbacks.onPointerMove(coords);
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                const coords = this.getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+                this.callbacks.onPointerMove(coords);
+                if (this.isSkillMode) {
+                    const cell = this.getCellFromMouse(e.touches[0].clientX, e.touches[0].clientY);
+                    this.callbacks.onSkillHover(cell, coords);
+                }
             }
             e.preventDefault();
         }, { passive: false });
@@ -129,7 +161,12 @@ export class InputHandler {
             if (e.changedTouches.length > 0) {
                 const endX = e.changedTouches[0].clientX;
                 const endY = e.changedTouches[0].clientY;
-                this.handleSwipe(endX, endY);
+                if (this.isSkillMode) {
+                    const cell = this.getCellFromMouse(endX, endY);
+                    if (cell) this.callbacks.onSkillClick(cell.row, cell.col);
+                } else {
+                    this.handleSwipe(endX, endY);
+                }
             }
             e.preventDefault();
         }, { passive: false });
@@ -161,17 +198,31 @@ export class InputHandler {
     }
 
     /**
+     * 獲取滑鼠在 Canvas 內部實際像素座標
+     * @param {number} clientX 
+     * @param {number} clientY 
+     * @returns {{ x: number, y: number }}
+     */
+    getCanvasCoords(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    }
+
+    /**
      * 將視窗滑鼠座標轉換為畫布網格座標
      * @param {number} clientX 
      * @param {number} clientY 
      * @returns {{ row: number, col: number } | null}
      */
     getCellFromMouse(clientX, clientY) {
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        const x = (clientX - rect.left) * scaleX;
-        const y = (clientY - rect.top) * scaleY;
+        const coords = this.getCanvasCoords(clientX, clientY);
+        const x = coords.x;
+        const y = coords.y;
 
         const col = Math.floor((x - GRID_OFFSET) / (CELL_SIZE + CELL_GAP));
         const row = Math.floor((y - GRID_OFFSET) / (CELL_SIZE + CELL_GAP));

@@ -153,6 +153,26 @@ canvas {
     cursor: not-allowed;
 }
 
+.sound-btn {
+    background: transparent;
+    color: #776e65;
+    border: 2px solid #3498db;
+}
+
+.sound-btn:hover {
+    background: rgba(52, 152, 219, 0.15);
+}
+
+.sound-btn.muted {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    color: #f9f6f2;
+}
+
+.sound-btn.muted:hover {
+    background: #c0392b;
+}
+
 .skill-mode-hint {
     margin-top: 5px;
     font-size: 16px;
